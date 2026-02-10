@@ -1,6 +1,6 @@
 import { runWithFallback, safeDefaultResponse } from "./aiService.js";
 
-export const generateSupportResponse = async (text: string, context: string) => {
+export const generateSupportResponse = async (text: string, context: string, meta?: { userId?: string; purpose?: string }) => {
   const messages = [
     {
       role: "system" as const,
@@ -9,7 +9,7 @@ export const generateSupportResponse = async (text: string, context: string) => 
     { role: "user" as const, content: `${text}\n\nContext: ${context}` },
   ];
 
-  const result = await runWithFallback(messages);
+  const result = await runWithFallback(messages, undefined, meta);
   if (!result.content) {
     return safeDefaultResponse("I am here with you. Do you want to share a little more about what you are feeling?");
   }

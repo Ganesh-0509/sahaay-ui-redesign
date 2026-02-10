@@ -5,10 +5,10 @@ import crypto from "crypto";
 
 const collection = () => getFirestore().collection("sessions");
 
-export const createSession = async (userId: string) => {
+export const createSession = async (userId: string, isAdmin = false) => {
   const sessionId = crypto.randomUUID();
   const expiresAt = DateTime.utc().plus({ hours: env.SESSION_TTL_HOURS }).toJSDate();
-  await collection().doc(sessionId).set({ userId, expiresAt });
+  await collection().doc(sessionId).set({ userId, expiresAt, isAdmin });
   return { sessionId, expiresAt };
 };
 
@@ -21,7 +21,7 @@ export const getSession = async (sessionId: string) => {
     await collection().doc(sessionId).delete();
     return null;
   }
-  return { userId: data.userId as string, expiresAt: data.expiresAt };
+  return { userId: data.userId as string, expiresAt: data.expiresAt, isAdmin: Boolean(data.isAdmin) };
 };
 
 export const deleteSession = async (sessionId: string) => {

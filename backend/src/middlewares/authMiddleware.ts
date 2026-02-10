@@ -4,6 +4,7 @@ import { getSession } from "../services/auth/sessionService.js";
 
 export interface AuthRequest extends Request {
   userId?: string;
+  isAdmin?: boolean;
 }
 
 export const requireAuth = async (req: AuthRequest, res: Response, next: NextFunction) => {
@@ -18,5 +19,6 @@ export const requireAuth = async (req: AuthRequest, res: Response, next: NextFun
   }
 
   req.userId = session.userId;
+  req.isAdmin = session.isAdmin;
   return next();
 };

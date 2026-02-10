@@ -52,13 +52,13 @@ const normalizeScores = (scores: Record<EmotionLabel, number>) => {
   return { primary, confidence, secondary, sentimentScore };
 };
 
-export const classifyEmotion = async (text: string): Promise<EmotionResult> => {
+export const classifyEmotion = async (text: string, meta?: { userId?: string; purpose?: string }): Promise<EmotionResult> => {
   const messages = [
     { role: "system" as const, content: "Classify emotion. Return JSON with primary, secondary (array), confidence 0-1, sentimentScore 0-1." },
     { role: "user" as const, content: text },
   ];
 
-  const response = await runWithFallback(messages, { type: "json_object" });
+  const response = await runWithFallback(messages, { type: "json_object" }, meta);
   if (response.content) {
     try {
       const parsed = JSON.parse(response.content) as EmotionResult;

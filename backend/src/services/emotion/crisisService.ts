@@ -15,13 +15,13 @@ export interface CrisisResult {
   usedFallback: boolean;
 }
 
-export const detectCrisis = async (text: string): Promise<CrisisResult> => {
+export const detectCrisis = async (text: string, meta?: { userId?: string; purpose?: string }): Promise<CrisisResult> => {
   const messages = [
     { role: "system" as const, content: "Detect crisis risk. Return JSON with severity (none, low, high) and rationale." },
     { role: "user" as const, content: text },
   ];
 
-  const response = await runWithFallback(messages, { type: "json_object" });
+  const response = await runWithFallback(messages, { type: "json_object" }, meta);
   if (response.content) {
     try {
       const parsed = JSON.parse(response.content) as CrisisResult;

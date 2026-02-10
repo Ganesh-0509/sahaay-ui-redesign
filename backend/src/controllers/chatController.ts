@@ -21,8 +21,8 @@ const extractTags = (text: string) => {
 
 export const sendMessage = async (req: AuthRequest, res: Response) => {
   const { text } = req.body as { text: string };
-  const emotion = await classifyEmotion(text);
-  const crisis = await detectCrisis(text);
+  const emotion = await classifyEmotion(text, { userId: req.userId as string, purpose: "chat_emotion" });
+  const crisis = await detectCrisis(text, { userId: req.userId as string, purpose: "chat_crisis" });
   const tags = extractTags(text);
 
   const doc = await messagesCollection().add({
@@ -51,7 +51,7 @@ export const generateResponse = async (req: AuthRequest, res: Response) => {
   const recentMessages = recent.docs.map((doc) => doc.data());
   recentMessages.sort((a: any, b: any) => (a.createdAt < b.createdAt ? 1 : -1));
   const context = recentMessages.map((doc: any) => doc.text).join(" ");
-  const response = await generateSupportResponse(text, context);
+  const response = await generateSupportResponse(text, context, { userId: req.userId as string, purpose: "chat_response" });
   await messagesCollection().add({
     userId: req.userId,
     sender: "ai",

@@ -1,4 +1,5 @@
 import { openaiClient } from "./openaiClient.js";
+import { logOpenAiUsage } from "./openaiUsageService.js";
 
 const FALLBACK_MODELS = ["gpt-4.1-mini", "gpt-4o-mini", "gpt-3.5-turbo"] as const;
 
@@ -14,7 +15,11 @@ const isRetryable = (err: unknown) => {
   return false;
 };
 
-export const runWithFallback = async (messages: Array<{ role: "system" | "user"; content: string }>, responseFormat?: { type: "json_object" }) => {
+export const runWithFallback = async (
+  messages: Array<{ role: "system" | "user"; content: string }>,
+  responseFormat?: { type: "json_object" },
+  meta?: { userId?: string; purpose?: string },
+) => {
   let lastError: unknown = null;
 
   for (const model of FALLBACK_MODELS) {
@@ -27,7 +32,18 @@ export const runWithFallback = async (messages: Array<{ role: "system" | "user";
       });
       const content = response.choices[0]?.message?.content ?? "";
       if (content) {
-        return { content, model, error: null };
+        if (response.usage && meta?.purpose) {
+          await logOpenAiUsage({
+            userId: meta.userId,
+            purpose: meta.purpose,
+            model,
+            promptTokens: response.usage.prompt_tokens,
+            completionTokens: response.usage.completion_tokens,
+            totalTokens: response.usage.total_tokens,
+            createdAt: new Date().toISOString(),
+          });
+        }
+        return { content, model, error: null, usage: response.usage };
       }
     } catch (err) {
       lastError = err;

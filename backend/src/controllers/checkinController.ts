@@ -5,7 +5,7 @@ import { classifyEmotion } from "../services/emotion/emotionEngine.js";
 
 export const createCheckIn = async (req: AuthRequest, res: Response) => {
   const { mood, note, timezone, createdAt } = req.body as { mood: any; note?: string; timezone: string; createdAt?: string };
-  const emotion = note ? await classifyEmotion(note) : null;
+  const emotion = note ? await classifyEmotion(note, { userId: req.userId as string, purpose: "checkin_emotion" }) : null;
   const sentimentScore = emotion?.sentimentScore ?? 0.5;
   const result = await upsertDailyCheckIn(req.userId as string, timezone, { mood, note, sentimentScore, createdAt });
   return res.json({ result, emotion });

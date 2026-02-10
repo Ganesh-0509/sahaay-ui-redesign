@@ -18,12 +18,14 @@ import { journalRoutes } from "./routes/journalRoutes.js";
 import { safetyPlanRoutes } from "./routes/safetyPlanRoutes.js";
 import { weeklyGoalRoutes } from "./routes/weeklyGoalRoutes.js";
 import { configRoutes } from "./routes/configRoutes.js";
+import { adminRoutes } from "./routes/adminRoutes.js";
 
 export const app = express();
 
 app.use(helmet());
 app.use(cors({ origin: env.CORS_ORIGIN, credentials: true }));
 app.use(express.json({ limit: "1mb" }));
+app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 app.use(morgan("combined"));
 
@@ -41,5 +43,6 @@ app.use("/api/journals", journalRoutes);
 app.use("/api/safety-plan", safetyPlanRoutes);
 app.use("/api/weekly-goal", weeklyGoalRoutes);
 app.use("/api/config", configRoutes);
+app.use("/admin", adminRoutes);
 
 app.use(errorHandler);
