@@ -35,6 +35,8 @@ const App = () => {
     return <div className="min-h-screen" />;
   }
 
+  const postAuthPath = onboardingCompleted ? "/dashboard" : "/onboarding";
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -44,11 +46,11 @@ const App = () => {
           <Routes>
             <Route
               path="/"
-              element={!user ? <Index /> : <Navigate to="/dashboard" replace />}
+              element={!user ? <Index /> : <Navigate to={postAuthPath} replace />}
             />
             <Route
               path="/auth"
-              element={!user ? <Auth /> : <Navigate to="/dashboard" replace />}
+              element={!user ? <Auth /> : <Navigate to={postAuthPath} replace />}
             />
             <Route
               path="/onboarding"
@@ -56,7 +58,7 @@ const App = () => {
             />
             <Route
               element={
-                !user ? <Navigate to="/" replace /> : <AppLayout />
+                !user ? <Navigate to="/" replace /> : onboardingCompleted ? <AppLayout /> : <Navigate to="/onboarding" replace />
               }
             >
               <Route
