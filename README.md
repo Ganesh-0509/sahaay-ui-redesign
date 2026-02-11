@@ -164,6 +164,13 @@ This repo contains a frontend (Vite) and a backend (Express). Deploy them as sep
 5. Add frontend environment variables (for example, API base URL pointing to the backend service).
 6. Deploy and open the site URL.
 
+### 2a) SPA rewrite rule (required for React Router)
+
+In Render → Static Site → Redirects/Rewrites, add:
+- Source: `/*`
+- Destination: `/index.html`
+- Action: `Rewrite`
+
 ### 3) Wire frontend to backend
 
 - If the frontend expects an API base URL, set it in Render for the static site.

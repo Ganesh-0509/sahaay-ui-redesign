@@ -56,6 +56,7 @@ const App = () => {
               path="/onboarding"
               element={!user ? <Navigate to="/" replace /> : onboardingCompleted ? <Navigate to="/dashboard" replace /> : <Onboarding />}
             />
+            <Route path="/index.html" element={<Navigate to="/" replace />} />
             <Route
               element={
                 !user ? <Navigate to="/" replace /> : onboardingCompleted ? <AppLayout /> : <Navigate to="/onboarding" replace />
