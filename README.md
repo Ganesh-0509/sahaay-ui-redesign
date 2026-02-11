@@ -151,6 +151,7 @@ This repo contains a frontend (Vite) and a backend (Express). Deploy them as sep
 	- `npm run start`
 5. Add required environment variables in Render (match your backend `.env.example`).
 6. Deploy and copy the public service URL.
+	- Current backend URL: https://sahaay-ai-y9v3.onrender.com
 
 ### 2) Deploy the frontend (Static Site)
 
@@ -166,6 +167,8 @@ This repo contains a frontend (Vite) and a backend (Express). Deploy them as sep
 ### 3) Wire frontend to backend
 
 - If the frontend expects an API base URL, set it in Render for the static site.
+	- Use `VITE_API_BASE_URL` and set it to your backend URL, for example:
+		- https://sahaay-ai-y9v3.onrender.com
 - Make sure CORS in the backend allows the frontend domain.
 - If you use Firebase, set the same Firebase config values in Render.
 
