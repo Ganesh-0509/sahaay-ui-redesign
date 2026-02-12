@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { SendHorizonal, Phone, ShieldAlert, Tag } from "lucide-react";
+import { SendHorizonal, Phone, ShieldAlert, Tag, History as HistoryIcon, ArrowLeft } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useUser } from "@/contexts/UserContext";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { apiFetch } from "@/lib/api";
+import { format, isToday } from "date-fns";
 
 interface Helpline {
   name: string;
@@ -42,10 +43,16 @@ const TypingIndicator = () => (
 );
 
 const Chat = () => {
+  const [searchParams] = useSearchParams();
+  const dayKey = searchParams.get("day");
+  const isHistorical = dayKey && !isToday(new Date(dayKey));
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 0,
-      text: "Hi there 🌿 I'm here to listen. How are you feeling right now?",
+      text: isHistorical
+        ? `Viewing conversation from ${format(new Date(dayKey!), "MMMM do, yyyy")} 🌿`
+        : "Hi there 🌿 I'm here to listen. How are you feeling right now?",
       sender: "ai",
     },
   ]);
@@ -58,8 +65,9 @@ const Chat = () => {
   const [helplines, setHelplines] = useState<Helpline[]>([]);
 
   useEffect(() => {
+    const url = dayKey ? `/api/chat?dayKey=${dayKey}` : "/api/chat";
     apiFetch<{ messages: Array<{ id: string; text: string; createdAt: string; tags?: string[]; crisis?: { severity?: string } }> }>(
-      "/api/chat",
+      url,
     )
       .then((result) => {
         const history = result.messages
@@ -70,12 +78,15 @@ const Chat = () => {
             tags: msg.tags || [],
             isCrisis: msg.crisis?.severity === "high",
             createdAt: msg.createdAt,
-          }))
-          .reverse();
-        setMessages((prev) => [...prev, ...history]);
+          }));
+
+        // Remove initial message if we have history
+        if (history.length > 0) {
+          setMessages(history);
+        }
       })
       .catch(() => null);
-  }, []);
+  }, [dayKey]);
 
   useEffect(() => {
     apiFetch<{ helplines: Helpline[] }>("/api/config/helplines")
@@ -89,13 +100,13 @@ const Chat = () => {
 
   const planPreview = safetyPlan
     ? {
-        coping: safetyPlan.copingSteps.slice(0, 3),
-        contacts: safetyPlan.contacts.slice(0, 2),
-      }
+      coping: safetyPlan.copingSteps.slice(0, 3),
+      contacts: safetyPlan.contacts.slice(0, 2),
+    }
     : null;
 
   const handleSend = () => {
-    if (!input.trim()) return;
+    if (!input.trim() || isHistorical) return;
     const userMsg: Message = { id: Date.now(), text: input.trim(), sender: "user" };
     setMessages((prev) => [...prev, userMsg]);
     setInput("");
@@ -145,22 +156,59 @@ const Chat = () => {
   return (
     <div className="mx-auto flex h-[calc(100vh-8rem)] max-w-3xl flex-col animate-fade-in">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="font-display text-2xl font-bold text-foreground">Talk to Sahaay</h1>
-          <p className="text-sm text-muted-foreground">I am here with you. Want to talk or sit quietly for a bit?</p>
+        <div className="flex items-center gap-3">
+          {isHistorical && (
+            <Link
+              to="/chat/history"
+              className="p-2 -ml-2 rounded-full hover:bg-surface-muted transition-colors"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+          )}
+          <div>
+            <h1 className="font-display text-2xl font-bold text-foreground">
+              {isHistorical ? "Past Conversation" : "Talk to Sahaay"}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {isHistorical
+                ? `Log from ${format(new Date(dayKey!), "EEEE, MMM do")}`
+                : "I am here with you. Want to talk or sit quietly for a bit?"}
+            </p>
+          </div>
         </div>
         <div className="hidden items-center gap-2 rounded-2xl border border-border bg-surface px-3 py-2 text-xs text-muted-foreground shadow-sm sm:flex">
-          <span className="h-2 w-2 rounded-full bg-success animate-pulse-soft" />
-          {isTyping ? "Sahaay is replying…" : isFocused ? "Sahaay is listening…" : "You are safe here"}
+          {isHistorical ? (
+            <>
+              <HistoryIcon className="h-3 w-3" />
+              <span>Read-only history</span>
+            </>
+          ) : (
+            <>
+              <span className="h-2 w-2 rounded-full bg-success animate-pulse-soft" />
+              {isTyping ? "Sahaay is replying…" : isFocused ? "Sahaay is listening…" : "You are safe here"}
+            </>
+          )}
         </div>
       </div>
+
+      {isHistorical && (
+        <Alert className="mb-6 rounded-2xl border-primary/20 bg-primary/5">
+          <HistoryIcon className="h-4 w-4 text-primary" />
+          <AlertDescription className="text-sm text-foreground">
+            You are viewing a conversation from the past. Start a
+            <Link to="/chat" className="ml-1 font-semibold text-primary underline-offset-4 hover:underline">
+              new chat here
+            </Link> to talk to Sahaay today.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {!!messages.filter((msg) => msg.tags?.length).length && (
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mb-4">
           <Tag className="h-4 w-4" />
-          {messages
-            .flatMap((msg) => msg.tags || [])
+          {Array.from(new Set(messages.flatMap((msg) => msg.tags || [])))
             .filter(Boolean)
-            .slice(0, 3)
+            .slice(0, 5)
             .map((tag) => (
               <span key={tag} className="rounded-full border border-border bg-surface px-2 py-1">
                 {tag}
@@ -168,19 +216,19 @@ const Chat = () => {
             ))}
         </div>
       )}
+
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto space-y-4 pb-4 pr-2">
+      <div className="flex-1 overflow-y-auto space-y-4 pb-4 pr-2 scrollbar-none">
         {messages.map((msg) => (
           <div key={msg.id}>
             <div
               className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[80%] rounded-2xl px-5 py-3.5 text-sm leading-relaxed shadow-sm ${
-                  msg.sender === "user"
+                className={`max-w-[80%] rounded-2xl px-5 py-3.5 text-sm leading-relaxed shadow-sm ${msg.sender === "user"
                     ? "bg-primary text-primary-foreground rounded-br-md"
                     : "bg-card border border-border/50 text-card-foreground rounded-bl-md"
-                }`}
+                  }`}
               >
                 {msg.text}
               </div>
@@ -209,21 +257,6 @@ const Chat = () => {
                       <Phone className="h-4 w-4" />
                       Open safety plan
                     </Link>
-                    {planPreview && (planPreview.coping.length || planPreview.contacts.length) && (
-                      <div className="mt-4 rounded-xl border border-border bg-surface px-3 py-3">
-                        <p className="text-xs font-semibold text-foreground">Your quick plan</p>
-                        {planPreview.coping.length > 0 && (
-                          <div className="mt-2 text-xs text-muted-foreground">
-                            Coping steps: {planPreview.coping.join(", ")}
-                          </div>
-                        )}
-                        {planPreview.contacts.length > 0 && (
-                          <div className="mt-2 text-xs text-muted-foreground">
-                            Reach out: {planPreview.contacts.map((c) => c.name).join(", ")}
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </AlertDescription>
                 </Alert>
               </div>
@@ -241,55 +274,57 @@ const Chat = () => {
       </div>
 
       {/* Input */}
-      <div className="border-t border-border bg-surface/80 backdrop-blur-sm pt-4">
-        <div className="mb-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
-          {[
-            "I have been feeling anxious lately",
-            "Can we do a short breathing exercise?",
-            "I just want to vent for a bit",
-          ].map((suggestion) => (
-            <button
-              key={suggestion}
-              type="button"
-              onClick={() => setInput(suggestion)}
-              className="rounded-full border border-border bg-surface px-3 py-1.5 transition-all hover:border-primary/40 hover:text-foreground"
+      {!isHistorical && (
+        <div className="border-t border-border bg-surface/80 backdrop-blur-sm pt-4">
+          <div className="mb-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+            {[
+              "I have been feeling anxious lately",
+              "Can we do a short breathing exercise?",
+              "I just want to vent for a bit",
+            ].map((suggestion) => (
+              <button
+                key={suggestion}
+                type="button"
+                onClick={() => setInput(suggestion)}
+                className="rounded-full border border-border bg-surface px-3 py-1.5 transition-all hover:border-primary/40 hover:text-foreground"
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-3">
+            <Textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
+                }
+              }}
+              placeholder="Share what's on your mind…"
+              className="min-h-[48px] max-h-32 resize-none rounded-2xl border-border/60 bg-card text-sm"
+              rows={1}
+              aria-label="Chat message"
+            />
+            <Button
+              onClick={handleSend}
+              size="icon"
+              className="h-12 w-12 shrink-0 rounded-2xl bg-primary text-primary-foreground shadow-md hover:shadow-lg transition-all"
+              aria-label="Send message"
+              disabled={isSending}
             >
-              {suggestion}
-            </button>
-          ))}
+              {isSending ? (
+                <span className="h-5 w-5 animate-spin rounded-full border-2 border-primary-foreground/60 border-t-transparent" />
+              ) : (
+                <SendHorizonal className="h-5 w-5" />
+              )}
+            </Button>
+          </div>
         </div>
-        <div className="flex gap-3">
-          <Textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
-            placeholder="Share what's on your mind…"
-            className="min-h-[48px] max-h-32 resize-none rounded-2xl border-border/60 bg-card text-sm"
-            rows={1}
-            aria-label="Chat message"
-          />
-          <Button
-            onClick={handleSend}
-            size="icon"
-            className="h-12 w-12 shrink-0 rounded-2xl bg-primary text-primary-foreground shadow-md hover:shadow-lg transition-all"
-            aria-label="Send message"
-            disabled={isSending}
-          >
-            {isSending ? (
-              <span className="h-5 w-5 animate-spin rounded-full border-2 border-primary-foreground/60 border-t-transparent" />
-            ) : (
-              <SendHorizonal className="h-5 w-5" />
-            )}
-          </Button>
-        </div>
-      </div>
+      )}
     </div>
   );
 };

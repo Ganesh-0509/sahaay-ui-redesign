@@ -16,6 +16,7 @@ import Onboarding from "./pages/Onboarding";
 import Journal from "./pages/Journal";
 import Settings from "./pages/Settings";
 import SafetyPlan from "./pages/SafetyPlan";
+import ChatHistory from "./pages/ChatHistory";
 import { useMemo } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useUser } from "@/contexts/UserContext";
@@ -67,6 +68,7 @@ const App = () => {
                 element={<Dashboard />}
               />
               <Route path="/chat" element={<Chat />} />
+              <Route path="/chat/history" element={<ChatHistory />} />
               <Route path="/analytics" element={<Analytics />} />
               <Route path="/coping" element={<CopingTools />} />
               <Route path="/community" element={<Community />} />

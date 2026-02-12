@@ -64,10 +64,32 @@ export const sendMessage = async (req: AuthRequest, res: Response) => {
 };
 
 export const listMessages = async (req: AuthRequest, res: Response) => {
-  const snapshot = await messagesCollection().where("userId", "==", req.userId).limit(20).get();
+  const { dayKey } = req.query as { dayKey?: string };
+  const userId = req.userId as string;
+  const timezone = await getUserTimezone(userId);
+  const targetDayKey = dayKey || getDayKey(new Date(), timezone);
+
+  const query = messagesCollection()
+    .where("userId", "==", userId)
+    .where("dayKey", "==", targetDayKey);
+
+  const snapshot = await query.limit(100).get();
   const messages = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-  messages.sort((a: any, b: any) => (a.createdAt < b.createdAt ? 1 : -1));
+  messages.sort((a: any, b: any) => (a.createdAt < b.createdAt ? -1 : 1));
   return res.json({ messages });
+};
+
+export const listHistory = async (req: AuthRequest, res: Response) => {
+  const userId = req.userId as string;
+  const snapshot = await getFirestore()
+    .collection("chatDailySummaries")
+    .where("userId", "==", userId)
+    .orderBy("dayKey", "desc")
+    .limit(30)
+    .get();
+
+  const history = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  return res.json({ history });
 };
 
 export const generateResponse = async (req: AuthRequest, res: Response) => {

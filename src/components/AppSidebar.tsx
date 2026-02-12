@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   MessageCircleHeart,
+  History,
   BarChart3,
   Heart,
   Users,
@@ -26,6 +27,7 @@ import {
 const navItems = [
   { title: "Home", url: "/dashboard", icon: LayoutDashboard },
   { title: "Talk to Sahaay", url: "/chat", icon: MessageCircleHeart },
+  { title: "Chat History", url: "/chat/history", icon: History },
   { title: "Your Mood Journey", url: "/analytics", icon: BarChart3 },
   { title: "Ways to Feel Better", url: "/coping", icon: Heart },
   { title: "Community", url: "/community", icon: Users },
