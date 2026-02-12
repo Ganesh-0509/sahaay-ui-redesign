@@ -149,3 +149,14 @@ storybook-static/
 
 # Chromatic
 chromatic-build/
+
+# Gradle and Android
+.gradle/
+**/android/.gradle/
+**/android/build/
+**/android/local.properties
+**/android/GeneratedPluginRegistrant.java
+**/android/app/build/
+**/android/app/src/main/assets/
+*.keystore
+*.jks
