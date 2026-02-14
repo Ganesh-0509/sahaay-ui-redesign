@@ -17,6 +17,25 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+const TOKEN_KEY = "sahaay_session_token";
+
+// Store token in localStorage for production cross-origin scenarios
+const storeToken = (token: string) => {
+  try {
+    localStorage.setItem(TOKEN_KEY, token);
+  } catch (e) {
+    console.warn("Failed to store token:", e);
+  }
+};
+
+const clearToken = () => {
+  try {
+    localStorage.removeItem(TOKEN_KEY);
+  } catch (e) {
+    console.warn("Failed to clear token:", e);
+  }
+};
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -28,6 +47,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       })
       .catch(() => {
         setUser(null);
+        clearToken(); // Clear invalid token
       })
       .finally(() => setLoading(false));
   }, []);
@@ -37,13 +57,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       user,
       loading,
       signIn: async (email, password) => {
-        const result = await apiFetch<{ user: { userId: string; email: string; displayName: string } }>(
+        const result = await apiFetch<{ user: { userId: string; email: string; displayName: string }; token: string }>(
           "/api/auth/login",
           {
             method: "POST",
             body: JSON.stringify({ email, password }),
           },
         );
+        // Store token for subsequent API calls
+        if (result.token) {
+          storeToken(result.token);
+        }
         setUser({
           uid: result.user.userId,
           email: result.user.email,
@@ -51,13 +75,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         });
       },
       signUp: async (email, password, displayName) => {
-        const result = await apiFetch<{ user: { userId: string; email: string; displayName: string } }>(
+        const result = await apiFetch<{ user: { userId: string; email: string; displayName: string }; token: string }>(
           "/api/auth/register",
           {
             method: "POST",
             body: JSON.stringify({ email, password, displayName }),
           },
         );
+        // Store token for subsequent API calls
+        if (result.token) {
+          storeToken(result.token);
+        }
         setUser({
           uid: result.user.userId,
           email: result.user.email,
@@ -66,6 +94,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       },
       logOut: async () => {
         await apiFetch("/api/auth/logout", { method: "POST" });
+        clearToken();
         setUser(null);
       },
     }),

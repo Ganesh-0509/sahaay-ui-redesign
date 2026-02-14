@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { apiFetch } from "@/lib/api";
 import {
@@ -7,9 +7,10 @@ import {
     MessageSquare,
     History as HistoryIcon,
     Search,
-    ArrowLeft
+    ArrowLeft,
+    RefreshCw
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -24,21 +25,41 @@ interface DailySummary {
 const ChatHistory = () => {
     const [history, setHistory] = useState<DailySummary[]>([]);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [search, setSearch] = useState("");
 
-    useEffect(() => {
-        apiFetch<{ history: DailySummary[] }>("/api/chat/history")
-            .then((res) => {
-                setHistory(res.history || []);
-            })
-            .catch(console.error)
-            .finally(() => setLoading(false));
+    const fetchHistory = useCallback(async (isRefresh = false) => {
+        if (isRefresh) setRefreshing(true);
+        else setLoading(true);
+
+        try {
+            const res = await apiFetch<{ history: DailySummary[] }>("/api/chat/history");
+            setHistory(res.history || []);
+        } catch (error) {
+            console.error("Failed to fetch history:", error);
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
     }, []);
+
+    useEffect(() => {
+        fetchHistory();
+    }, [fetchHistory]);
 
     const filteredHistory = history.filter(item =>
         item.summary.toLowerCase().includes(search.toLowerCase()) ||
         item.dayKey.includes(search)
     );
+
+    const formatDateString = (dateStr: string) => {
+        try {
+            // dayKey is yyyy-MM-dd
+            return format(parseISO(dateStr), "EEEE, MMMM do, yyyy");
+        } catch {
+            return dateStr;
+        }
+    };
 
     return (
         <div className="mx-auto max-w-4xl space-y-8 pb-12 animate-fade-in">
@@ -57,6 +78,15 @@ const ChatHistory = () => {
                         "Your journey, one conversation at a time 🌿"
                     </p>
                 </div>
+                <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => fetchHistory(true)}
+                    disabled={refreshing || loading}
+                    className="rounded-xl h-10 w-10"
+                >
+                    <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+                </Button>
             </div>
 
             <div className="relative">
@@ -90,7 +120,7 @@ const ChatHistory = () => {
                                     </div>
                                     <div>
                                         <h3 className="font-semibold text-foreground">
-                                            {format(new Date(item.dayKey), "EEEE, MMMM do, yyyy")}
+                                            {formatDateString(item.dayKey)}
                                         </h3>
                                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                             <MessageSquare className="h-3 w-3" />

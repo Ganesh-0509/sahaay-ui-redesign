@@ -47,45 +47,61 @@ const Chat = () => {
   const dayKey = searchParams.get("day");
   const isHistorical = dayKey && !isToday(new Date(dayKey));
 
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 0,
-      text: isHistorical
-        ? `Viewing conversation from ${format(new Date(dayKey!), "MMMM do, yyyy")} 🌿`
-        : "Hi there 🌿 I'm here to listen. How are you feeling right now?",
-      sender: "ai",
-    },
-  ]);
+  const initialMessage: Message = {
+    id: 0,
+    text: isHistorical
+      ? `Viewing conversation from ${format(new Date(dayKey!), "MMMM do, yyyy")} 🌿`
+      : "Hi there 🌿 I'm here to listen. How are you feeling right now?",
+    sender: "ai",
+  };
+
+  const [messages, setMessages] = useState<Message[]>([initialMessage]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const endRef = useRef<HTMLDivElement>(null);
   const { safetyPlan } = useUser();
   const [helplines, setHelplines] = useState<Helpline[]>([]);
 
   useEffect(() => {
+    setIsLoading(true);
     const url = dayKey ? `/api/chat?dayKey=${dayKey}` : "/api/chat";
-    apiFetch<{ messages: Array<{ id: string; text: string; createdAt: string; tags?: string[]; crisis?: { severity?: string } }> }>(
+    apiFetch<{ messages: Array<{ id: string; text: string; createdAt: string; sender?: "user" | "ai"; tags?: string[]; crisis?: { severity?: string } }> }>(
       url,
     )
       .then((result) => {
         const history = result.messages
-          .map((msg) => ({
-            id: Number(msg.createdAt ? new Date(msg.createdAt).getTime() : Date.now()),
+          .map((msg: any) => ({
+            id: msg.id,
             text: msg.text,
-            sender: (msg as { sender?: "user" | "ai" }).sender ?? "user",
+            sender: msg.sender ?? "user",
             tags: msg.tags || [],
             isCrisis: msg.crisis?.severity === "high",
             createdAt: msg.createdAt,
           }));
 
-        // Remove initial message if we have history
+        // Sort: Oldest first (will be at the top)
+        history.sort((a: any, b: any) => {
+          if (!a.createdAt || !b.createdAt) return 0;
+          return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+        });
+
         if (history.length > 0) {
           setMessages(history);
+        } else {
+          setMessages([initialMessage]);
         }
       })
-      .catch(() => null);
+      .catch(() => setMessages([initialMessage]))
+      .finally(() => {
+        setIsLoading(false);
+        // Delay scroll to ensure DOM is ready
+        setTimeout(() => {
+          endRef.current?.scrollIntoView({ behavior: "smooth" });
+        }, 100);
+      });
   }, [dayKey]);
 
   useEffect(() => {
@@ -95,8 +111,10 @@ const Chat = () => {
   }, []);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isTyping]);
+    if (!isLoading) {
+      endRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages, isTyping, isLoading]);
 
   const planPreview = safetyPlan
     ? {
@@ -142,7 +160,7 @@ const Chat = () => {
       .catch(() => {
         const aiMsg: Message = {
           id: Date.now() + 1,
-          text: mockResponses[Math.floor(Math.random() * mockResponses.length)],
+          text: "I am here for you. Tell me more.",
           sender: "ai",
         };
         setMessages((prev) => [...prev, aiMsg]);
@@ -176,18 +194,20 @@ const Chat = () => {
             </p>
           </div>
         </div>
-        <div className="hidden items-center gap-2 rounded-2xl border border-border bg-surface px-3 py-2 text-xs text-muted-foreground shadow-sm sm:flex">
-          {isHistorical ? (
-            <>
-              <HistoryIcon className="h-3 w-3" />
-              <span>Read-only history</span>
-            </>
-          ) : (
-            <>
-              <span className="h-2 w-2 rounded-full bg-success animate-pulse-soft" />
-              {isTyping ? "Sahaay is replying…" : isFocused ? "Sahaay is listening…" : "You are safe here"}
-            </>
-          )}
+        <div className="flex items-center gap-3">
+          <div className="hidden items-center gap-2 rounded-2xl border border-border bg-surface px-3 py-2 text-xs text-muted-foreground shadow-sm sm:flex">
+            {isHistorical ? (
+              <>
+                <HistoryIcon className="h-3 w-3" />
+                <span>Read-only history</span>
+              </>
+            ) : (
+              <>
+                <span className="h-2 w-2 rounded-full bg-success animate-pulse-soft" />
+                {isTyping ? "Sahaay is replying…" : isFocused ? "Sahaay is listening…" : "You are safe here"}
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -203,78 +223,86 @@ const Chat = () => {
         </Alert>
       )}
 
-      {!!messages.filter((msg) => msg.tags?.length).length && (
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mb-4">
-          <Tag className="h-4 w-4" />
-          {Array.from(new Set(messages.flatMap((msg) => msg.tags || [])))
-            .filter(Boolean)
-            .slice(0, 5)
-            .map((tag) => (
-              <span key={tag} className="rounded-full border border-border bg-surface px-2 py-1">
-                {tag}
-              </span>
-            ))}
+      {isLoading ? (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
         </div>
-      )}
-
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto space-y-4 pb-4 pr-2 scrollbar-none">
-        {messages.map((msg) => (
-          <div key={msg.id}>
-            <div
-              className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`max-w-[80%] rounded-2xl px-5 py-3.5 text-sm leading-relaxed shadow-sm ${msg.sender === "user"
-                    ? "bg-primary text-primary-foreground rounded-br-md"
-                    : "bg-card border border-border/50 text-card-foreground rounded-bl-md"
-                  }`}
-              >
-                {msg.text}
-              </div>
+      ) : (
+        <>
+          {!!messages.filter((msg) => msg.tags?.length).length && (
+            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mb-4">
+              <Tag className="h-4 w-4" />
+              {Array.from(new Set(messages.flatMap((msg) => msg.tags || [])))
+                .filter(Boolean)
+                .slice(0, 5)
+                .map((tag) => (
+                  <span key={tag} className="rounded-full border border-border bg-surface px-2 py-1">
+                    {tag}
+                  </span>
+                ))}
             </div>
-            {msg.isCrisis && (
-              <div className="mt-3 ml-0 max-w-[80%] animate-fade-in">
-                <Alert className="rounded-2xl border-peach bg-peach/20">
-                  <ShieldAlert className="h-4 w-4 text-peach-foreground" />
-                  <AlertDescription className="text-sm text-foreground">
-                    If you're in crisis, please reach out to a helpline.
-                    <br />
-                    {helplines.length > 0 ? (
-                      <>
-                        {helplines.map((line, index) => (
-                          <strong key={line.name}>
-                            {line.name}: {line.number}
-                            {index < helplines.length - 1 ? " • " : ""}
-                          </strong>
-                        ))}
-                      </>
-                    ) : (
-                      <strong>Reach out to local support resources.</strong>
-                    )}
-                    <br />
-                    <Link to="/safety" className="mt-2 inline-flex items-center gap-2 text-sm text-primary">
-                      <Phone className="h-4 w-4" />
-                      Open safety plan
-                    </Link>
-                  </AlertDescription>
-                </Alert>
+          )}
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto space-y-4 pb-4 pr-2 scrollbar-none">
+            {messages.map((msg) => (
+              <div key={msg.id || `${msg.sender}-${msg.createdAt}`}>
+                <div
+                  className={`flex ${msg.sender === "user" ? "justify-end" : "justify-start"}`}
+                >
+                  <div
+                    className={`max-w-[80%] rounded-2xl px-5 py-3.5 text-sm leading-relaxed shadow-sm ${msg.sender === "user"
+                      ? "bg-primary text-primary-foreground rounded-br-md"
+                      : "bg-card border border-border/50 text-card-foreground rounded-bl-md"
+                      }`}
+                  >
+                    {msg.text}
+                  </div>
+                </div>
+                {msg.isCrisis && (
+                  <div className="mt-3 ml-0 max-w-[80%] animate-fade-in">
+                    <Alert className="rounded-2xl border-peach bg-peach/20">
+                      <ShieldAlert className="h-4 w-4 text-peach-foreground" />
+                      <AlertDescription className="text-sm text-foreground">
+                        If you're in crisis, please reach out to a helpline.
+                        <br />
+                        {helplines.length > 0 ? (
+                          <>
+                            {helplines.map((line, index) => (
+                              <strong key={line.name}>
+                                {line.name}: {line.number}
+                                {index < helplines.length - 1 ? " • " : ""}
+                              </strong>
+                            ))}
+                          </>
+                        ) : (
+                          <strong>Reach out to local support resources.</strong>
+                        )}
+                        <br />
+                        <Link to="/safety" className="mt-2 inline-flex items-center gap-2 text-sm text-primary">
+                          <Phone className="h-4 w-4" />
+                          Open safety plan
+                        </Link>
+                      </AlertDescription>
+                    </Alert>
+                  </div>
+                )}
+              </div>
+            ))}
+            {isTyping && (
+              <div className="flex justify-start">
+                <div className="rounded-2xl bg-card border border-border/50 shadow-sm rounded-bl-md">
+                  <TypingIndicator />
+                </div>
               </div>
             )}
+            <div ref={endRef} />
           </div>
-        ))}
-        {isTyping && (
-          <div className="flex justify-start">
-            <div className="rounded-2xl bg-card border border-border/50 shadow-sm rounded-bl-md">
-              <TypingIndicator />
-            </div>
-          </div>
-        )}
-        <div ref={endRef} />
-      </div>
+        </>
+      )}
 
       {/* Input */}
-      {!isHistorical && (
+      {!isHistorical && !isLoading && (
         <div className="border-t border-border bg-surface/80 backdrop-blur-sm pt-4">
           <div className="mb-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
             {[

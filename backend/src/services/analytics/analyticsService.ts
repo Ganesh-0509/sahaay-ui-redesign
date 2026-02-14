@@ -19,6 +19,8 @@ const moodScore = (mood: string) => {
   }
 };
 
+const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+
 export const buildAnalytics = async (userId: string, timezone: string) => {
   const daily = await getDailyCheckIns(userId);
   const dayKeys = new Set(daily.map((item) => item.dayKey));
@@ -34,12 +36,23 @@ export const buildAnalytics = async (userId: string, timezone: string) => {
   const sentimentByDay = daily.map((item) => {
     const entries = Array.isArray(item.entries) ? item.entries : [];
     const sentiment = entries.reduce((sum: number, entry: any) => sum + (entry.sentimentScore ?? 0.5), 0) / (entries.length || 1);
-    const normalizedMood = entries.length ? entries[0].mood : "neutral";
+    const latestEntry = entries
+      .slice()
+      .sort((a: any, b: any) => (a.createdAt < b.createdAt ? 1 : -1))[0];
+    const normalizedMood = latestEntry?.mood || "neutral";
+    const moodScoreValue = moodScore(normalizedMood);
+    const moodScore10 = Math.round((moodScoreValue / 5) * 10);
+    const sentiment10 = Math.round(sentiment * 10);
+    const blendedMood = Math.round(0.6 * sentiment10 + 0.4 * moodScore10);
+    const stressScore = clamp(10 - blendedMood, 0, 10);
     return {
       dayKey: item.dayKey,
       sentiment,
       normalizedMood,
-      moodScore: moodScore(normalizedMood),
+      moodScore: moodScoreValue,
+      moodScore10,
+      stressScore,
+      entryCount: entries.length,
     };
   });
 

@@ -73,23 +73,32 @@ export const listMessages = async (req: AuthRequest, res: Response) => {
     .where("userId", "==", userId)
     .where("dayKey", "==", targetDayKey);
 
-  const snapshot = await query.limit(100).get();
-  const messages = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-  messages.sort((a: any, b: any) => (a.createdAt < b.createdAt ? -1 : 1));
+  const snapshot = await query.get();
+  const messages = snapshot.docs
+    .map((doc) => ({ id: doc.id, ...doc.data() as any }))
+    .filter(msg => msg.createdAt);
+
+  // Sort: Oldest first (Top), Newest last (Bottom)
+  // ISO strings sort correctly with localeCompare or simple < >
+  messages.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
   return res.json({ messages });
 };
 
 export const listHistory = async (req: AuthRequest, res: Response) => {
   const userId = req.userId as string;
+  // Fetch by userId only (equality filter) - no index needed beyond standard
   const snapshot = await getFirestore()
     .collection("chatDailySummaries")
     .where("userId", "==", userId)
-    .orderBy("dayKey", "desc")
-    .limit(30)
     .get();
 
-  const history = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-  return res.json({ history });
+  const history = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as any }));
+
+  // Sort in-memory: Newest day first
+  history.sort((a, b) => b.dayKey.localeCompare(a.dayKey));
+
+  return res.json({ history: history.slice(0, 50) });
 };
 
 export const generateResponse = async (req: AuthRequest, res: Response) => {

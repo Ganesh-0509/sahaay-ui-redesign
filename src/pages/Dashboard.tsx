@@ -73,7 +73,7 @@ const Dashboard = () => {
     );
     let count = 0;
     let cursor = new Date();
-    for (;;) {
+    for (; ;) {
       const key = cursor.toDateString();
       if (days.includes(key)) {
         count += 1;
@@ -143,28 +143,28 @@ const Dashboard = () => {
           ? { title: "Celebrate your streak", description: "Small wins build momentum.", action: "/dashboard" }
           : { title: "Talk it out", description: "Sahaay is here when you want to share.", action: "/chat" };
 
-    const todaysPlan = {
-      tool:
-        latestMood === "anxious"
-          ? "Breathing"
-          : latestMood === "sad"
-            ? "Affirmations"
-            : latestMood === "frustrated"
-              ? "Grounding"
-              : "Quick Exercises",
-      prompt: "What is one thing you need today?",
-      goal: weeklyGoal?.title || "Complete a gentle check-in",
-    };
+  const todaysPlan = {
+    tool:
+      latestMood === "anxious"
+        ? "Breathing"
+        : latestMood === "sad"
+          ? "Affirmations"
+          : latestMood === "frustrated"
+            ? "Grounding"
+            : "Quick Exercises",
+    prompt: "What is one thing you need today?",
+    goal: weeklyGoal?.title || "Complete a gentle check-in",
+  };
 
-    const handleSaveGoal = async () => {
-      if (!goalTitle.trim()) return;
-      const goal: WeeklyGoal = {
-        title: goalTitle.trim(),
-        targetPerWeek: goalTarget,
-        updatedAt: new Date().toISOString(),
-      };
-      await updateWeeklyGoal(goal);
+  const handleSaveGoal = async () => {
+    if (!goalTitle.trim()) return;
+    const goal: WeeklyGoal = {
+      title: goalTitle.trim(),
+      targetPerWeek: goalTarget,
+      updatedAt: new Date().toISOString(),
     };
+    await updateWeeklyGoal(goal);
+  };
 
   return (
     <div className="mx-auto max-w-5xl space-y-10 animate-fade-in">
@@ -191,9 +191,8 @@ const Dashboard = () => {
                 key={mood.label}
                 onClick={() => setSelectedMood(mood.value)}
                 aria-label={`Select mood: ${mood.label} ${mood.emoji}`}
-                className={`card-elevated group flex flex-col items-center gap-2 rounded-2xl p-5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
-                  selectedMood === mood.value ? "ring-2 ring-primary/40" : ""
-                }`}
+                className={`card-elevated group flex flex-col items-center gap-2 rounded-2xl p-5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${selectedMood === mood.value ? "ring-2 ring-primary/40" : ""
+                  }`}
               >
                 <span className="text-3xl transition-transform group-hover:scale-110">
                   {mood.emoji}
@@ -277,34 +276,6 @@ const Dashboard = () => {
         </Card>
       )}
 
-      <Card className="card-elevated rounded-2xl">
-        <CardContent className="p-6">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Mood timeline</p>
-              <p className="text-sm text-muted-foreground">Last 7 check-ins</p>
-            </div>
-            <Button variant="ghost" onClick={() => navigate("/analytics")}>
-              View insights
-            </Button>
-          </div>
-          {moodTimeline.length ? (
-            <div className="mt-4 grid grid-cols-7 gap-2 text-center">
-              {moodTimeline.map((item) => (
-                <div key={item.id} className="rounded-2xl border border-border bg-surface px-2 py-3">
-                  <div className="text-xl" aria-label={item.label}>{item.mood}</div>
-                  <div className="mt-1 text-[10px] text-muted-foreground">{item.date}</div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="mt-4 text-sm text-muted-foreground">
-              Start checking in to build your timeline.
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       <div className="grid gap-4 md:grid-cols-2">
         <Card className="card-elevated rounded-2xl">
           <CardContent className="p-6">
@@ -380,57 +351,6 @@ const Dashboard = () => {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card className="card-elevated rounded-2xl">
-          <CardContent className="flex items-center gap-4 p-6">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-secondary">
-              <NotebookPen className="h-6 w-6 text-secondary-foreground" />
-            </div>
-            <div>
-              <p className="font-display text-xl font-bold text-foreground">Journal prompt</p>
-              <p className="text-sm text-muted-foreground">What is one thing you need today?</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="card-elevated rounded-2xl">
-          <CardContent className="flex items-center gap-4 p-6">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-lavender">
-              <Bell className="h-6 w-6 text-lavender-foreground" />
-            </div>
-            <div>
-              <p className="font-display text-xl font-bold text-foreground">Daily reminder</p>
-              <p className="text-sm text-muted-foreground">
-                {settings.remindersEnabled ? `Enabled at ${settings.reminderTime}` : "Not enabled yet"}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Passive info */}
-      <section>
-        <h2 className="mb-4 font-display text-lg font-semibold text-foreground">
-          Your emotional patterns
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {insights.map((insight, i) => (
-            <Card
-              key={i}
-              className="card-elevated rounded-2xl"
-              style={{ animationDelay: `${i * 100}ms` }}
-            >
-              <CardContent className="flex items-start gap-3 p-5">
-                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${insight.color} icon-tilt`}>
-                  <insight.icon className="h-5 w-5" />
-                </div>
-                <p className="text-sm font-medium text-foreground leading-relaxed">
-                  {insight.text}
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </section>
     </div>
   );
 };

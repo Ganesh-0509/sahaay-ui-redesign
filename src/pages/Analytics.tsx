@@ -10,7 +10,15 @@ import { apiFetch } from "@/lib/api";
 interface AnalyticsPayload {
   streak: number;
   averageSentiment: number;
-  sentimentByDay: Array<{ dayKey: string; sentiment: number; normalizedMood: string; moodScore: number }>;
+  sentimentByDay: Array<{
+    dayKey: string;
+    sentiment: number;
+    normalizedMood: string;
+    moodScore: number;
+    moodScore10?: number;
+    stressScore?: number;
+    entryCount?: number;
+  }>;
 }
 
 const moodEmojis: Record<string, string> = {
@@ -37,10 +45,11 @@ const Analytics = () => {
   const sentimentDays = analytics?.sentimentByDay ?? [];
   const weeklyData = sentimentDays.slice(0, 7).reverse().map((day) => {
     const label = new Date(`${day.dayKey}T00:00:00`).toLocaleDateString(undefined, { weekday: "short" });
-    const mood = Math.round(day.sentiment * 10);
+    const mood = day.moodScore10 ?? Math.round(day.sentiment * 10);
     const moodLabel = day.normalizedMood || "neutral";
     const emoji = moodEmojis[moodLabel] || "😐";
-    return { day: label, mood, stress: Math.max(0, 10 - mood), moodLabel, emoji };
+    const stress = day.stressScore ?? Math.max(0, 10 - mood);
+    return { day: label, mood, stress, moodLabel, emoji, entryCount: day.entryCount ?? 0 };
   });
 
   const monthlyData = (() => {
@@ -51,9 +60,9 @@ const Analytics = () => {
       if (!buckets[weekKey]) {
         buckets[weekKey] = { mood: 0, stress: 0, count: 0 };
       }
-      const mood = Math.round(day.sentiment * 10);
+      const mood = day.moodScore10 ?? Math.round(day.sentiment * 10);
       buckets[weekKey].mood += mood;
-      buckets[weekKey].stress += Math.max(0, 10 - mood);
+      buckets[weekKey].stress += day.stressScore ?? Math.max(0, 10 - mood);
       buckets[weekKey].count += 1;
     });
 
@@ -168,7 +177,15 @@ const Analytics = () => {
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey={xKey} tick={{ fontSize: 12 }} stroke="hsl(var(--text-muted))" />
+              <XAxis
+                dataKey={xKey}
+                tick={{ fontSize: 12, fill: "hsl(var(--foreground))" }}
+                stroke="hsl(var(--text-muted))"
+                interval={0}
+                angle={-20}
+                height={30}
+                tickMargin={8}
+              />
               <YAxis domain={[0, 10]} tick={{ fontSize: 12 }} stroke="hsl(var(--text-muted))" />
               <Tooltip 
                 contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}
@@ -182,6 +199,9 @@ const Analytics = () => {
               <Line type="monotone" dataKey="mood" stroke="hsl(var(--primary))" strokeWidth={3} dot={{ r: 5, fill: "hsl(var(--primary))" }} />
             </LineChart>
           </ResponsiveContainer>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Trend insight: {moodTrend}
+          </p>
         </CardContent>
       </Card>
 
@@ -192,50 +212,92 @@ const Analytics = () => {
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={data}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis dataKey={xKey} tick={{ fontSize: 12 }} stroke="hsl(var(--text-muted))" />
+              <XAxis
+                dataKey={xKey}
+                tick={{ fontSize: 12 }}
+                stroke="hsl(var(--text-muted))"
+                interval={0}
+                angle={-20}
+                height={30}
+                tickMargin={8}
+              />
               <YAxis domain={[0, 10]} tick={{ fontSize: 12 }} stroke="hsl(var(--text-muted))" />
-              <Tooltip contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }} />
+              <Tooltip
+                contentStyle={{ borderRadius: 12, border: "none", boxShadow: "0 4px 12px rgba(0,0,0,0.08)" }}
+                formatter={(value: any, name: any, props: any) => {
+                  if (name === "stress") {
+                    const count = props?.payload?.entryCount ?? 0;
+                    const label = count ? `${count} check-in${count === 1 ? "" : "s"}` : "sentiment";
+                    return [`${value} / 10 (${label})`, "stress"];
+                  }
+                  return [value, name];
+                }}
+              />
               <Bar dataKey="stress" fill="hsl(var(--peach))" radius={[8, 8, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
+          <p className="mt-3 text-sm text-muted-foreground">
+            Stress is estimated from your mood check-ins and sentiment, scaled from 0 (low) to 10 (high).
+          </p>
         </CardContent>
       </Card>
-
-      {/* Insights */}
-      <section>
-        <h2 className="mb-4 font-display text-lg font-semibold text-foreground">Gentle observations</h2>
-        {settings.privateMode ? (
-          <Card className="card-elevated rounded-2xl">
-            <CardContent className="p-5 text-sm text-muted-foreground">
-              Private mode is on. Insights will appear once you sync your check-ins.
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-3">
-            {[weeklySummary, bestTime, ...insights].map((text, i) => (
-              <Card key={i} className="card-elevated rounded-2xl">
-                <CardContent className="p-5">
-                  <p className="text-sm font-medium text-foreground leading-relaxed">{text}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </section>
 
       <section>
         <h2 className="mb-4 font-display text-lg font-semibold text-foreground">Mood calendar</h2>
         <Card className="card-elevated rounded-2xl">
           <CardContent className="p-6">
-            {calendarDays.length ? (
-              <div className="grid grid-cols-7 gap-2 text-center text-sm">
-                {calendarDays.map((day) => (
-                  <div key={day.id} className="rounded-2xl border border-border bg-surface px-2 py-3">
-                    <div className="text-xs text-muted-foreground">{day.day}</div>
-                    <div className="mt-1 text-lg" aria-label={day.mood}>{day.emoji}</div>
+            {sentimentDays.length ? (
+              (() => {
+                const now = new Date();
+                const year = now.getFullYear();
+                const month = now.getMonth();
+                const firstDay = new Date(year, month, 1).getDay();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                const dayKeys = sentimentDays.reduce<Record<string, string>>((acc, day) => {
+                  const emoji = moodEmojis[day.normalizedMood] || "😐";
+                  acc[day.dayKey] = emoji;
+                  return acc;
+                }, {});
+
+                const cells: Array<{ key: string; label?: number; emoji?: string }>
+                  = [];
+                for (let i = 0; i < firstDay; i += 1) {
+                  cells.push({ key: `empty-${i}` });
+                }
+                for (let d = 1; d <= daysInMonth; d += 1) {
+                  const dayKey = new Date(year, month, d).toISOString().slice(0, 10);
+                  cells.push({
+                    key: dayKey,
+                    label: d,
+                    emoji: dayKeys[dayKey],
+                  });
+                }
+
+                return (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-7 text-center text-xs text-muted-foreground">
+                      {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((label) => (
+                        <div key={label} className="py-1">{label}</div>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-7 gap-2 text-center text-sm">
+                      {cells.map((cell) => (
+                        <div
+                          key={cell.key}
+                          className="rounded-2xl border border-border bg-surface px-2 py-3 min-h-[60px]"
+                        >
+                          {cell.label ? (
+                            <>
+                              <div className="text-xs text-muted-foreground">{cell.label}</div>
+                              <div className="mt-1 text-lg">{cell.emoji || ""}</div>
+                            </>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
-              </div>
+                );
+              })()
             ) : (
               <p className="text-sm text-muted-foreground">Check in to see your calendar here.</p>
             )}

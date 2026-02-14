@@ -87,6 +87,16 @@ export const UserProvider = ({ children }: { children: React.ReactNode }) => {
         apiFetch<{ plan: SafetyPlan | null }>("/api/safety-plan"),
       ]);
 
+      const browserTimezone = getBrowserTimezone();
+      const serverTimezone = settingsRes.settings?.timezone;
+      if (!serverTimezone || (serverTimezone === "UTC" && browserTimezone !== "UTC")) {
+        const nextSettings = await apiFetch<{ settings: UserSettings | null }>("/api/user/settings", {
+          method: "PUT",
+          body: JSON.stringify({ timezone: browserTimezone }),
+        });
+        settingsRes.settings = { ...settingsRes.settings, ...(nextSettings.settings ?? {}) };
+      }
+
       setProfile(profileRes.profile ?? null);
       setSettings({ ...DEFAULT_SETTINGS, ...(settingsRes.settings ?? {}) });
       setWeeklyGoal(goalRes.goal ?? null);
